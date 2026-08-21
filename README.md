@@ -131,9 +131,27 @@ must end in `.png`, must not already exist, and must be inside a configured VM d
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m ruff check src tests main.py
+.\.venv\Scripts\python.exe -m ruff check src tests main.py evaluation
 ```
 
 Tests cover the `.vmx` parser (encoding, CRLF, ordering, backup rotation), VM name
 resolution, the allowed-directory gate, and device-slot allocation. They use temporary
 directories and never touch real VMs.
+
+### Tool-use evaluation
+
+`tests/` checks that the tools work; `evaluation/` checks that a model can *use* them.
+Ten questions in `evaluation/tool_use_eval.xml` target the mistakes a 36-tool surface
+invites — reaching for the raw `.vmx` escape hatch when a typed tool exists, powering a
+VM on to read a setting the file already holds, or treating a refusal from the
+destructive gate as an obstacle to work around.
+
+```powershell
+.\.venv\Scripts\python.exe evaluation\run_evaluation.py list
+.\.venv\Scripts\python.exe evaluation\run_evaluation.py validate
+.\.venv\Scripts\python.exe evaluation\run_evaluation.py score transcript.json
+```
+
+Tool selection, ordering and arguments are graded mechanically; the rubric criteria are
+printed as a checklist for a human or judge model. See [evaluation/README.md](evaluation/README.md)
+for the fixture, the transcript format, and how to add a question.

@@ -56,7 +56,7 @@ def register(mcp: FastMCP) -> None:
     ) -> dict:
         """Power a VM on, off, reset, suspend, pause, or unpause it.
 
-        Hardware edits (set_vm_hardware, attach_disk, ...) require the VM to be
+        Hardware edits (set_vm_hardware, add_disk, ...) require the VM to be
         powered off, so call this with action='stop' first. Prefer mode='soft'
         unless the guest is unresponsive.
         """

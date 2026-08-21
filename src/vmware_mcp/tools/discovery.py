@@ -158,7 +158,8 @@ def register(mcp: FastMCP) -> None:
     ) -> dict:
         """List port forwardings configured on a NAT host network.
 
-        Only NAT networks support forwarding. Change them with set_port_forwarding.
+        Only NAT networks support forwarding. Change them with
+        manage_port_forwarding.
         """
         raw = VmRun()("listPortForwardings", vmnet)
         return {"vmnet": vmnet, "raw": raw}
