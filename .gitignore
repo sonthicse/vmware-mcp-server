@@ -1,0 +1,23 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+
+# VMware artefacts, in case a VM ever lives inside the repo
+*.vmx.*.bak
+*.vmx.tmp
+*.vmdk
+*.nvram
+*.vmss
+*.vmem
+*.log
+
+.agents
+.claude
+CLAUDE.md
+skills-lock.json
