@@ -40,4 +40,6 @@ ignore = ["E501", "SIM108"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+# `evaluation` is on the path so tests/test_evaluation.py can import the shared
+# toolset helper the eval runner uses.
+pythonpath = ["src", "evaluation"]
