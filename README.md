@@ -141,10 +141,12 @@ directories and never touch real VMs.
 ### Tool-use evaluation
 
 `tests/` checks that the tools work; `evaluation/` checks that a model can *use* them.
-Ten questions in `evaluation/tool_use_eval.xml` target the mistakes a 36-tool surface
-invites — reaching for the raw `.vmx` escape hatch when a typed tool exists, powering a
-VM on to read a setting the file already holds, or treating a refusal from the
-destructive gate as an obstacle to work around.
+Twenty-two questions in `evaluation/tool_use_eval.xml` target the mistakes a 36-tool
+surface invites — reaching for the raw `.vmx` escape hatch when a typed tool exists,
+powering a VM on to read a setting the file already holds, deleting a NIC to satisfy a
+request the user framed as temporary, or treating a refusal from the destructive gate as
+an obstacle to work around. Every tool is referenced by at least one question, and a test
+enforces that: adding a tool without a question breaks the suite.
 
 ```powershell
 .\.venv\Scripts\python.exe evaluation\run_evaluation.py list

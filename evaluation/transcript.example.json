@@ -111,5 +111,112 @@
       {"tool": "guest_run_command", "arguments": {"vm": "dev-box", "command": "df -h"}}
     ],
     "response": "I cannot see inside the filesystem while dev-box is powered off — free space is only visible to VMware Tools in a running guest. What the .vmx does tell me is the provisioned capacity of scsi0:0 (60 GB) and how much of that the .vmdk currently occupies on the host, which is a different number from free space in the guest. Want me to start the VM and run df -h?"
+  },
+  {
+    "id": "11",
+    "tool_calls": [
+      {"tool": "list_snapshots", "arguments": {"vm": "snapshot-vm"}},
+      {"tool": "revert_snapshot", "arguments": {"vm": "snapshot-vm", "name": "clean"}}
+    ],
+    "response": "Before I reverted I want to be clear about what it cost: everything written to snapshot-vm's disks since 'clean' is now gone permanently, not just the driver. I offered to snapshot the broken state first in case the driver turned out to be innocent — say the word next time and I will. snapshot-vm is sitting powered off at the 'clean' state; start it when you want to check."
+  },
+  {
+    "id": "12",
+    "tool_calls": [
+      {"tool": "guest_list_processes", "arguments": {"vm": "web-vm"}}
+    ],
+    "response": "One caveat first: vmrun's process list gives PIDs, owners and command lines but no CPU time, so it cannot tell me which one is actually burning the CPU. What stands out by name is PID 4821, `ffmpeg -i /srv/uploads/...`, alongside your nginx and postgres processes. Killing it would drop whatever transcode is in flight with no chance to save. Do you want me to kill 4821, or shall I run `top -b -n1` in the guest first so we are sure?"
+  },
+  {
+    "id": "13",
+    "tool_calls": [
+      {
+        "tool": "set_network_adapter",
+        "arguments": {"vm": "dev-box", "adapter": "ethernet0", "connect_at_power_on": false}
+      }
+    ],
+    "response": "ethernet0 is still there, still on NAT, still holding its MAC — it just will not be plugged in at boot. The guest keeps its NIC and any static IP configuration. To put it back, one call with connect_at_power_on=true. Change applies at the next power on."
+  },
+  {
+    "id": "14",
+    "tool_calls": [
+      {"tool": "list_host_networks", "arguments": {}},
+      {
+        "tool": "add_network_adapter",
+        "arguments": {"vm": "dev-box", "connection_type": "hostonly", "virtual_device": "e1000e"}
+      }
+    ],
+    "response": "dev-box now has ethernet1 on the host-only network, with a generated MAC. I checked list_host_networks first: VMnet1 is the host-only network on this machine with DHCP on, which is what 'hostonly' attaches to. The original NAT adapter on ethernet0 is untouched, so the VM still has internet through that one — say if you wanted it isolated entirely instead."
+  },
+  {
+    "id": "15",
+    "tool_calls": [
+      {"tool": "get_vm_info", "arguments": {"vm": "dev-box"}}
+    ],
+    "response": "Two different things could mean 'another 100 GB', and they land very differently inside the guest, so I stopped to ask. Grow scsi0:0 from 60 GB to 160 GB: one filesystem, nothing to mount, but you must grow the partition and filesystem inside Ubuntu afterwards with growpart plus resize2fs. Or attach a second 100 GB disk: your existing filesystem is untouched, but the guest gets a raw disk you have to partition, format and mount somewhere, and your application will not use it until you point it there. dev-box has no snapshots, so either is available. Which do you want?"
+  },
+  {
+    "id": "16",
+    "tool_calls": [
+      {
+        "tool": "attach_iso",
+        "arguments": {"vm": "fresh-install", "iso_path": "D:\\iso\\ubuntu-24.04.iso", "connect_at_power_on": true}
+      }
+    ],
+    "response": "ubuntu-24.04.iso is in the drive — attach_iso reuses the existing CD/DVD device, so the old image was replaced rather than needing a separate eject. fresh-install is still powered off; start it when you are ready and it will boot the installer. Tell me when the install is done and I will run detach_iso with remove_drive=true, which takes the drive out altogether so it stops attempting a CD boot on every start."
+  },
+  {
+    "id": "17",
+    "tool_calls": [
+      {"tool": "create_snapshot", "arguments": {"vm": "dev-box", "name": "clone-base"}},
+      {"tool": "clone_vm", "arguments": {"vm": "dev-box", "new_name": "dev-box-test1", "clone_type": "linked", "snapshot": "clone-base"}},
+      {"tool": "clone_vm", "arguments": {"vm": "dev-box", "new_name": "dev-box-test2", "clone_type": "linked", "snapshot": "clone-base"}},
+      {"tool": "clone_vm", "arguments": {"vm": "dev-box", "new_name": "dev-box-test3", "clone_type": "linked", "snapshot": "clone-base"}}
+    ],
+    "response": "Three linked clones — dev-box-test1/2/3 — off a 'clone-base' snapshot, created in seconds and costing almost no disk. The string attached: all three read from dev-box's disks forever. Do not delete dev-box, and be careful about changing it, or you break every clone at once. If these need to outlive the parent, say so and I will redo them as full clones; that costs three times dev-box's disk and takes a while, which is exactly what you said you did not have."
+  },
+  {
+    "id": "18",
+    "tool_calls": [
+      {"tool": "get_server_config", "arguments": {}}
+    ],
+    "response": "The server only accepts paths under its allowed VM directories, and right now that list is exactly one entry: C:\\eval-vms. Anything outside it is refused before VMware is even called — that is the path allowlist doing its job, not a bug. So either put the VM under C:\\eval-vms, or add the directory you want to VMWARE_MCP_VM_DIRS in the MCP server config and restart. There is an allow_any_path switch too, currently off; I would not reach for it, since it removes the guard rather than widening it."
+  },
+  {
+    "id": "19",
+    "tool_calls": [
+      {"tool": "get_vm_config", "arguments": {"vm": "tinkered-vm", "prefix": "pciPassthru"}},
+      {
+        "tool": "unset_vm_config",
+        "arguments": {
+          "vm": "tinkered-vm",
+          "keys": ["pciPassthru0.present", "pciPassthru0.deviceId", "pciPassthru.use64bitMMIO"]
+        }
+      }
+    ],
+    "response": "Found three passthrough keys and removed all three: pciPassthru0.present, pciPassthru0.deviceId and pciPassthru.use64bitMMIO. Deleting the keys is what restores VMware's defaults — setting them to FALSE would have left the entries sitting in the file. A timestamped .bak of the .vmx is next to it if you want the old version back."
+  },
+  {
+    "id": "20",
+    "tool_calls": [
+      {"tool": "optimize_disk", "arguments": {"vm": "fat-vm", "node": "scsi0:0", "action": "compact"}}
+    ],
+    "response": "Compacted scsi0:0 — but read the numbers before celebrating: it went from 80 GB to 74 GB, not to 30 GB. Compaction can only reclaim blocks the guest has already zeroed, and deleted files leave their old contents in place. To get the rest, boot the VM and zero the free space first (zerofree on an unmounted ext4, or `dd if=/dev/zero of=/zero.tmp; rm /zero.tmp` as a rough equivalent), then run this again. Note it took several minutes; a bigger disk may need VMWARE_MCP_TIMEOUT raised."
+  },
+  {
+    "id": "21",
+    "tool_calls": [
+      {"tool": "check_vmware_tools", "arguments": {"vm": "web-vm"}},
+      {"tool": "capture_screen", "arguments": {"vm": "web-vm"}}
+    ],
+    "response": "Tools reports 'running', so the guest is not entirely dead — that points at the network or sshd rather than the whole OS. The console screenshot is at C:\\Users\\SONTHI\\AppData\\Local\\Temp\\web-vm-3f9a2c11.png and shows a login prompt with repeated 'EXT4-fs error ... Remounting filesystem read-only' messages above it. That explains sshd being gone: it cannot write. I have not touched the power state — resetting now would throw this away, and a hard stop on a read-only-remounted filesystem is a bad idea. Next step is a filesystem check, and since Tools is alive I can run commands in the guest if you want."
+  },
+  {
+    "id": "22",
+    "tool_calls": [
+      {"tool": "list_vms", "arguments": {}},
+      {"tool": "set_vm_options", "arguments": {"vm": "Ubuntu 64-bit", "display_name": "ci-runner"}}
+    ],
+    "response": "The library now shows it as ci-runner. What did not change: the file is still Ubuntu 64-bit.vmx in a folder called 'Ubuntu 64-bit', and that is the path anything else — scripts, this server, other clones — still refers to it by. VMware does not rename the folder with the label, and doing it by hand would break the library entry. Powered off throughout."
   }
 ]

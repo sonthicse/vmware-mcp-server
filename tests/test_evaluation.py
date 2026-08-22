@@ -23,9 +23,26 @@ def questions():
     return load_questions()
 
 
-def test_the_eval_covers_ten_questions(questions):
-    assert len(questions) == 10
-    assert len({q.id for q in questions}) == 10
+def test_question_ids_are_unique(questions):
+    assert len(questions) == 22
+    assert len({q.id for q in questions}) == len(questions)
+
+
+def test_every_tool_appears_somewhere_in_the_eval(questions, tools):
+    """Coverage is a maintenance constraint, not a vanity metric.
+
+    A tool nobody wrote a question for is a tool whose description has never
+    been read back by a model under test. Adding one to the server should
+    therefore break this suite until the eval catches up. Appearing only as
+    bait in forbidden_tools counts: the question still asserts something about
+    when that tool should be reached for.
+    """
+    referenced = {call.tool for q in questions for call in q.expected}
+    referenced |= {f.tool for q in questions for f in q.forbidden if f.exists}
+    missing = sorted(set(tools) - referenced)
+    assert not missing, (
+        f"{len(missing)} tool(s) appear in no question: {', '.join(missing)}"
+    )
 
 
 def test_every_expected_tool_exists(questions, tools):

@@ -144,12 +144,24 @@ def cmd_validate(args: argparse.Namespace) -> int:
                     "now registers it. Update the question."
                 )
 
-    covered = {call.tool for q in load_questions() for call in q.expected}
-    print(f"{len(load_questions())} questions, {len(tools)} tools registered.")
-    print(f"tools exercised by the expected sequences: {len(covered)}")
-    uncovered = sorted(known - covered)
-    if uncovered:
-        print(f"not exercised ({len(uncovered)}): {', '.join(uncovered)}")
+    questions = load_questions()
+    expected = {call.tool for q in questions for call in q.expected}
+    # A tool used as bait is still under test, just from the other side: the
+    # question asserts the model does NOT reach for it.
+    bait = {
+        forbidden.tool
+        for q in questions
+        for forbidden in q.forbidden
+        if forbidden.exists
+    } - expected
+    untouched = sorted(known - expected - bait)
+
+    print(f"{len(questions)} questions, {len(tools)} tools registered.")
+    print(f"exercised by an expected sequence: {len(expected)}")
+    print(f"exercised as bait only:            {len(bait)}"
+          + (f"  ({', '.join(sorted(bait))})" if bait else ""))
+    print(f"never referenced:                  {len(untouched)}"
+          + (f"  ({', '.join(untouched)})" if untouched else ""))
 
     for problem in problems:
         print(f"PROBLEM  {problem}")
@@ -199,9 +211,15 @@ def cmd_score(args: argparse.Namespace) -> int:
         # Match greedily forwards: a tool can legitimately appear twice in one
         # sequence (attempt, fix, retry), so each expected call consumes the
         # first match *after* the previous one rather than the first overall.
+        # order="0" opts out: presence is graded, position is not.
         cursor = -1
         for expected in sorted(q.expected, key=lambda c: c.order):
             hits = [i for i, call in enumerate(calls) if _matches(expected, call)]
+            if expected.order == 0:
+                if not hits and expected.required:
+                    args_text = ", ".join(f"{k}={v}" for k, v in expected.args.items())
+                    failures.append(f"missing call {expected.tool}({args_text})")
+                continue
             forward = [i for i in hits if i > cursor]
             if forward:
                 cursor = forward[0]
